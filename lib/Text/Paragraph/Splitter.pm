@@ -122,14 +122,16 @@ class Text::Paragraph::Splitter {
 				and defined($clues->[$j]) 
 				and $clues->[$j]{type} eq $order->[0] 
 				and $merge->{end} == $clues->[$j]{start}){
-					$merge->{end} 		=  $clues->[$j]{end};
+					$merge->{end} 		=  $clues->[$j]{end}
+						unless 	$clues->[$j]{type} eq 'caps'
+							or	$clues->[$j]{type} eq 'indent';
 					$merge->{confidence}+= $clues->[$j]{confidence};
 					shift @$order;
 			}
 			$i=$j;
 			push @$gaps, $merge if $merge->{confidence} > $self->ptres;
 		}
-		dump($gaps);
+dump($gaps);
 		return $gaps;
 	}
 
@@ -144,6 +146,16 @@ class Text::Paragraph::Splitter {
 		push @$offsets, [$start,$text_length];
 dump($offsets);
 		return $offsets;
+	}
+
+	method _offsets2array (Str|ScalarRef[Str] $text, ArrayRef[ArrayRef[Int]] $offsets) {
+		$text = $$text if ref($text);
+		my $pars = [];
+		foreach my $o (@$offsets){
+			push @$pars, substr($text, $o->[0], ($o->[1]-$o->[0]));
+		}
+dump($pars);
+		return $pars;
 	}
 }
 
