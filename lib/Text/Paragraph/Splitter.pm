@@ -14,7 +14,7 @@ class Text::Paragraph::Splitter {
 	has 'tabwidth'	=> ( is => 'rw', isa => 'Int',  default => '4' );  # Tab width (for indentation calculation)
 
 	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  # blank 	      line weigth
-	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # short 	      line weigth
+	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # short 	      line weigth
 	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # indented     line weigth
 	has 'capw'		=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # caps-started line weigth
 	has 'ptres' 	=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # Minimum confidence needed to consider paragraph
@@ -127,12 +127,24 @@ class Text::Paragraph::Splitter {
 					shift @$order;
 			}
 			$i=$j;
-			push @$gaps, $merge;
+			push @$gaps, $merge if $merge->{confidence} > $self->ptres;
 		}
 		dump($gaps);
 		return $gaps;
 	}
 
+	method _gaps2offsets (ArrayRef[HashRef] $gaps, Int $text_length) {
+		my $offsets = [];
+		my $start = 0;
+		for my $g (@$gaps){
+			my $end = $g->{start};
+			push @$offsets, [$start,$end];
+			$start = $g->{end};
+		}
+		push @$offsets, [$start,$text_length];
+dump($offsets);
+		return $offsets;
+	}
 }
 
 1;
