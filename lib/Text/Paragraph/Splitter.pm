@@ -13,9 +13,10 @@ class Text::Paragraph::Splitter {
 	has 'ptag'		=> ( is => 'rw', isa => 'Str',  default => 'P' );  # Tag to be used to delimit paragraphs.
 	has 'tabwidth'	=> ( is => 'rw', isa => 'Int',  default => '4' );  # Tab width (for indentation calculation)
 
-	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  # blank 	line weigth
-	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # short 	line weigth
-	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # indented line weigth
+	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  # blank 	      line weigth
+	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # short 	      line weigth
+	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # indented     line weigth
+	has 'capw'		=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # caps-started line weigth
 	has 'ptres' 	=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # Minimum confidence needed to consider paragraph
 
 	method offsets (Str|ScalarRef[Str] $text) {
@@ -35,6 +36,7 @@ class Text::Paragraph::Splitter {
 		my $clues4 = $self->_findcap(\$text);
 		my $clues  = [sort {$a->{start} <=> $b->{start}} (@$clues1,@$clues2,@$clues3,@$clues4)];
 		dump $clues;
+		return $clues;
 	}
 
 
@@ -47,9 +49,10 @@ class Text::Paragraph::Splitter {
 			my ($start,$end) = ($-[0],$+[0]);
 			next if $line =~ /^\s*$/;			# blank line does not count
 			push @$clues, {
-				start 	=> $start,
-				end		=> $end,
-				type	=> 'short',
+				start 		=> $start,
+				end			=> $end,
+				type		=> 'short',
+				confidence	=> $self->slw,
 			};
 		}
 		return $clues;
@@ -60,9 +63,10 @@ class Text::Paragraph::Splitter {
 		my $clues = [];
 		while($text =~ /\n([ \t]*\n)+/g){
 			push @$clues, {
-				start	=> $-[0],
-				end		=> $+[0],
-				type	=> 'blank',
+				start		=> $-[0],
+				end			=> $+[0],
+				type		=> 'blank',
+				confidence	=> $self->blw,
 			}
 		}
 		return $clues;
@@ -77,9 +81,10 @@ class Text::Paragraph::Splitter {
 			my $width = $self->tabwidth*($indent =~ s/\t//g);
 			$width+= ($indent =~ s/ //g);
 			push @$clues, {
-				start	=> $start,
-				end		=> $end,
-				type 	=> 'indent',
+				start		=> $start,
+				end			=> $end,
+				type 		=> 'indent',
+				confidence	=> $self->indw,
 			} if $width >= $self->indw;
 		}
 		return $clues;
@@ -91,16 +96,43 @@ class Text::Paragraph::Splitter {
 		while($text =~ /^\s*(\p{IsUpper})/gpm){
 			my ($start,$end) = ($-[1],$+[1]);
 			push @$clues, {
-				start 	=> $start,
-				end		=> $end,
-				type	=> 'caps'
+				start 		=> $start,
+				end			=> $end,
+				type		=> 'caps',
+				confidence	=> $self->capw,
 			};
 		}
 		return $clues;
 	}
 	
 	method _clues2gaps (ArrayRef[HashRef] $clues) {
+		$clues  = [sort {$a->{start} <=> $b->{start}} @$clues];
+		my $gaps = [];
+		for (my $i = 0; $i<@$clues; $i++){
+			my $order = ['short','blank','indent','caps'];
+			my $c = $clues->[$i];
+			my $merge = {};
+			$merge->{start} 		= ( $c->{type} eq 'short' ? $c->{end} : $c->{start} );
+			$merge->{end}   		=   $c->{end};
+			$merge->{confidence} 	= $c->{confidence};
+			shift @$order while $c->{type} ne $order->[0]; shift @$order;
+			my $j = $i;
+			while (	@$order 
+				and ++$j
+				and defined($clues->[$j]) 
+				and $clues->[$j]{type} eq $order->[0] 
+				and $merge->{end} == $clues->[$j]{start}){
+					$merge->{end} 		=  $clues->[$j]{end};
+					$merge->{confidence}+= $clues->[$j]{confidence};
+					shift @$order;
+			}
+			$i=$j;
+			push @$gaps, $merge;
+		}
+		dump($gaps);
+		return $gaps;
 	}
+
 }
 
 1;
