@@ -17,6 +17,7 @@ class Text::Paragraph::Splitter {
 	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # short 	      line weigth
 	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # indented     line weigth
 	has 'capw'		=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # caps-started line weigth
+	has 'punctw'	=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # punct        line weigth
 	has 'ptres' 	=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # Minimum confidence needed to consider paragraph
 
 	method offsets (Str|ScalarRef[Str] $text) {
@@ -104,35 +105,76 @@ class Text::Paragraph::Splitter {
 		}
 		return $clues;
 	}
+
+	method _findpunct (Str|ScalarRef[Str] $text) {
+		$text = $$text if ref($text);
+		my $clues = [];
+		while($text =~ /[,;:\-]$/gpm){
+			my ($start,$end) = ($-[0],$+[0]);
+			push @$clues, {
+				start		=> $start,
+				end			=> $end,
+				type		=> 'punctuation',
+				confidence	=> -0.5,
+			};
+		}
+		while($text =~ /[?!\.]$/gpm){
+			my ($start,$end) = ($-[0],$+[0]);
+			push @$clues, {
+				start		=> $start,
+				end			=> $end,
+				type		=> 'punctuation',
+				confidence	=> 0.2,
+			};
+		}
+		return $clues;
+	}
+
 	
 	method _clues2gaps (ArrayRef[HashRef] $clues) {
 		$clues  = [sort {$a->{start} <=> $b->{start}} @$clues];
 		my $gaps = [];
 		for (my $i = 0; $i<@$clues; $i++){
-			my $order = ['short','blank','indent','caps'];
-			my $c = $clues->[$i];
+			my $order = ['short','punctuation','blank','indent','caps'];
 			my $merge = {};
-			$merge->{start} 		= ( $c->{type} eq 'short' ? $c->{end} : $c->{start} );
-			$merge->{end}   		=   $c->{end};
-			$merge->{confidence} 	= $c->{confidence};
-			shift @$order while $c->{type} ne $order->[0]; shift @$order;
+
+			$merge->{clues_start}	= $clues->[$i]{start};
+			$merge->{clues_end}		= $clues->[$i]{start};
+			$merge->{start} 		= undef;
+			$merge->{end}   		= undef;
+			$merge->{confidence} 	= 0;
+
 			my $j = $i;
-			while (	@$order 
-				and ++$j
-				and defined($clues->[$j]) 
-				and $clues->[$j]{type} eq $order->[0] 
-				and $merge->{end} == $clues->[$j]{start}){
-					$merge->{end} 		=  $clues->[$j]{end}
-						unless 	$clues->[$j]{type} eq 'caps'
-							or	$clues->[$j]{type} eq 'indent';
-					$merge->{confidence}+= $clues->[$j]{confidence};
-					shift @$order;
+			my $c = $clues->[$j];
+			shift @$order while (@$order and $order->[0] ne $c->{type});
+
+			while (@$order and $j < @$clues and $c->{start} eq $merge->{clues_end}){
+				shift @$order;
+				$merge->{clues_end} = $c->{end};
+				if($c->{type} eq 'short' or $c->{type} eq 'punctuation'){
+					$merge->{start} = $c->{end};
+					$merge->{end}	= $c->{end};
+				}
+				elsif($c->{type} eq 'blank'){
+					$merge->{start} = $c->{start};
+					$merge->{end} 	= $c->{end};
+				}
+				elsif($c->{type} eq 'indent' or $c->{type} eq 'caps'){
+					$merge->{start} //= $c->{start};
+					$merge->{end} 	//= $c->{start};
+				}
+				$merge->{confidence} += $c->{confidence};
+
+				$j++;
+				next if $j >= @$clues;
+				$c = $clues->[$j];
+				shift @$order while (@$order and $order->[0] ne $c->{type});
 			}
-			$i=$j;
-			push @$gaps, $merge if $merge->{confidence} > $self->ptres;
+
+			push @$gaps, $merge;
+			$i=$j-1;
 		}
-dump($gaps);
-		return $gaps;
+		return [ grep { $_->{confidence} >= $self->ptres } @$gaps ];
 	}
 
 	method _gaps2offsets (ArrayRef[HashRef] $gaps, Int $text_length) {
