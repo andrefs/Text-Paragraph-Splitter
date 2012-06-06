@@ -7,18 +7,20 @@ class Text::Paragraph::Splitter {
 	use Data::Dump qw/dump/;
 	use feature qw/say/;
 
-	has 'short' 	=> ( is => 'rw', isa => 'Int',  default => 50  );  # maximum length of a line to still be considered 'short'
-	has 'indent'	=> ( is => 'rw', isa => 'Int',  default => 2   );  # Mininum length of white space needed to consider line indented
-	has 'trail'		=> ( is => 'rw', isa => 'Bool', default => 0   );  # include trailing white space in paragraphs?
-	has 'ptag'		=> ( is => 'rw', isa => 'Str',  default => 'P' );  # Tag to be used to delimit paragraphs.
-	has 'tabwidth'	=> ( is => 'rw', isa => 'Int',  default => '4' );  # Tab width (for indentation calculation)
+	has 'short' 	=> ( is => 'rw', isa => 'Num',  default => 50  );  	# maximum length of a line to still be considered 'short'
+	has 'indent'	=> ( is => 'rw', isa => 'Int',  default => 2   );  	# Mininum length of white space needed to consider line indented
+	has 'trail'		=> ( is => 'rw', isa => 'Bool', default => 0   );  	# include trailing white space in paragraphs?
+	has 'ptag'		=> ( is => 'rw', isa => 'Str',  default => 'P' );  	# Tag to be used to delimit paragraphs.
+	has 'tabwidth'	=> ( is => 'rw', isa => 'Int',  default => '4' );  	# Tab width (for indentation calculation)
 
-	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  # blank 	      line weigth
-	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # short 	      line weigth
-	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  # indented     line weigth
-	has 'capw'		=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # caps-started line weigth
-	has 'punctw'	=> ( is => 'rw', isa => 'Num',  default => 0.2 );  # punct        line weigth
-	has 'ptres' 	=> ( is => 'rw', isa => 'Num',  default => 0.5 );  # Minimum confidence needed to consider paragraph
+	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  	# blank 	   line weigth
+	has 'slw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  	# short 	   line weigth
+	has 'indw'		=> ( is => 'rw', isa => 'Num',  default => 0.3 );  	# indented     line weigth
+	has 'capw'		=> ( is => 'rw', isa => 'Num',  default => 0.2 );  	# caps-started line weigth
+	has 'punctw'	=> ( is => 'rw', isa => 'Num',  default => 0.2 );  	# punct        line weigth
+	has 'ptres' 	=> ( is => 'rw', isa => 'Num',  default => 0.5 );  	# Minimum confidence needed to consider paragraph
+
+	has '_avgll' 	=> ( is => 'rw', isa => 'Num',  default => 80 ); 	# Average line length
 
 	method offsets (Str|ScalarRef[Str] $text) {
 	}
@@ -44,7 +46,8 @@ class Text::Paragraph::Splitter {
 	method _findshort (Str|ScalarRef[Str] $text) {
 		$text = $$text if ref($text);
 		my $clues = [];
-		my $l = $self->short;
+		my $l = ($self->short < 1 ? int($self->short*$self->_avgll)+1 : $self->short);
+		say $l;
 		while($text =~ /^.{0,$l}$/gmp){
 			my $line = ${^MATCH};
 			my ($start,$end) = ($-[0],$+[0]);
@@ -156,7 +159,7 @@ class Text::Paragraph::Splitter {
 					$merge->{end}	= $c->{end};
 				}
 				elsif($c->{type} eq 'blank'){
-					$merge->{start} = $c->{start};
+					$merge->{start} = ($self->trail ? $c->{end} : $c->{start});
 					$merge->{end} 	= $c->{end};
 				}
 				elsif($c->{type} eq 'indent' or $c->{type} eq 'caps'){
@@ -186,7 +189,6 @@ class Text::Paragraph::Splitter {
 			$start = $g->{end};
 		}
 		push @$offsets, [$start,$text_length];
-dump($offsets);
 		return $offsets;
 	}
 
@@ -196,8 +198,13 @@ dump($offsets);
 		foreach my $o (@$offsets){
 			push @$pars, substr($text, $o->[0], ($o->[1]-$o->[0]));
 		}
-dump($pars);
 		return $pars;
+	}
+
+	method _calcmetrics (Str|ScalarRef[Str] $text) {
+		$text = $$text if ref($text);
+		my $avgll = length($text)/(split /\n/,$text);
+		$self->_avgll($avgll);
 	}
 }
 
