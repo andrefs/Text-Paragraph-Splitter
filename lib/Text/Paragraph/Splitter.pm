@@ -10,7 +10,7 @@ class Text::Paragraph::Splitter {
 	has 'short' 	=> ( is => 'rw', isa => 'Num',  default => 50  );  	# maximum length of a line to still be considered 'short'
 	has 'indent'	=> ( is => 'rw', isa => 'Int',  default => 2   );  	# Mininum length of white space needed to consider line indented
 	has 'trail'		=> ( is => 'rw', isa => 'Bool', default => 0   );  	# include trailing white space in paragraphs?
-	has 'ptag'		=> ( is => 'rw', isa => 'Str',  default => 'P' );  	# Tag to be used to delimit paragraphs.
+	has 'partag'	=> ( is => 'rw', isa => 'Str',  default => 'P' );  	# Tag to be used to delimit paragraphs.
 	has 'tabwidth'	=> ( is => 'rw', isa => 'Int',  default => '4' );  	# Tab width (for indentation calculation)
 
 	has 'blw'		=> ( is => 'rw', isa => 'Num',  default => 0.8 );  	# blank 	   line weigth
@@ -23,22 +23,48 @@ class Text::Paragraph::Splitter {
 	has '_avgll' 	=> ( is => 'rw', isa => 'Num',  default => 80 ); 	# Average line length
 
 	method offsets (Str|ScalarRef[Str] $text) {
+		$text = $$text if ref($text);
+		$self->_calcmetrics(\$text);
+		my $clues 	= $self->_findclues(\$text);
+		my $gaps  	= $self->_clues2gaps($clues);
+		my $offsets = $self->_gaps2offsets($gaps,length($text));
+		return $offsets;
 	}
 
+#	method _fixoffsets (ArrayRef[ArrayRef[Int]] $offsets){
+#		for my $x (@$offsets){
+#			next unless defined($x);
+#			for my $y (@$offsets){
+#				next unless defined($y);
+#
+#				next if ($x->[0] < $y->[0] and $x->[1] < $y->[1] or $x->[0] > $y->[0] and $x->[1] > $y->[1]);
+#				if($x
+
+
 	method split (Str|ScalarRef[Str] $text) {
+		$text = $$text if ref($text);
+		my $offsets = $self->offsets(\$text);
+		my $array   = $self->_offsets2array(\$text, $offsets);
+		return $array;
 	}
 
 	method annotate (Str|ScalarRef[Str] $text) {
+		$text = $$text if ref($text);
+		my $array = $self->split(\$text);
+		my $anno  = '';
+		my $ot = '<'.$self->partag.'>';
+		my $ct = '</'.$self->partag.">\n";
+		$anno.="$ot$_$ct" foreach @$array;
+		return $anno;
 	}
 
-	method _find (Str|ScalarRef[Str] $text) {
+	method _findclues (Str|ScalarRef[Str] $text) {
 		$text = $$text if ref($text);
 		my $clues1 = $self->_findshort(\$text);
 		my $clues2 = $self->_findblank($text);
 		my $clues3 = $self->_findindent(\$text);
 		my $clues4 = $self->_findcap(\$text);
 		my $clues  = [sort {$a->{start} <=> $b->{start}} (@$clues1,@$clues2,@$clues3,@$clues4)];
-		dump $clues;
 		return $clues;
 	}
 
@@ -47,11 +73,11 @@ class Text::Paragraph::Splitter {
 		$text = $$text if ref($text);
 		my $clues = [];
 		my $l = ($self->short < 1 ? int($self->short*$self->_avgll)+1 : $self->short);
-		say $l;
 		while($text =~ /^.{0,$l}$/gmp){
 			my $line = ${^MATCH};
 			my ($start,$end) = ($-[0],$+[0]);
 			next if $line =~ /^\s*$/;			# blank line does not count
+			$start+= $+[1] if $line =~ /^\s*(\p{IsUpper})/gmp; # compat. with caps rule
 			push @$clues, {
 				start 		=> $start,
 				end			=> $end,
@@ -185,7 +211,7 @@ class Text::Paragraph::Splitter {
 		my $start = 0;
 		for my $g (@$gaps){
 			my $end = $g->{start};
-			push @$offsets, [$start,$end];
+			push @$offsets, [$start,$end] unless $start == $end;
 			$start = $g->{end};
 		}
 		push @$offsets, [$start,$text_length];
@@ -196,7 +222,8 @@ class Text::Paragraph::Splitter {
 		$text = $$text if ref($text);
 		my $pars = [];
 		foreach my $o (@$offsets){
-			push @$pars, substr($text, $o->[0], ($o->[1]-$o->[0]));
+			my $str = substr($text, $o->[0], ($o->[1]-$o->[0]));
+			push @$pars, $str;
 		}
 		return $pars;
 	}
