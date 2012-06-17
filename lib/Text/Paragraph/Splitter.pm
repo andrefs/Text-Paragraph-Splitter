@@ -1,7 +1,14 @@
 use strict; use warnings;
 package Text::Paragraph::Splitter;
-use Object::Tiny::Lvalue qw/short indent trail partag tabwidth
-							blw slw indw capw punctw ptres _avgll/;
+use Object::Tiny::Lvalue qw/
+							short     indw
+							indent    capw
+							trail     punctw
+							partag    ptres
+							tabwidth  _avgll
+							blw       _ilcount
+							slw       _bgcount
+						/;
 
 # ABSTRACT: Guesses the notation used for paragraphs to split them.
 
@@ -23,6 +30,9 @@ sub new {
 	$self->ptres 	//= 0.5, # Minimum confidence needed to consider paragraph
 
 	$self->_avgll 	//= 80 , # Average line length
+	$self->_ilcount   =  0,  # Indented lines count
+	$self->_bgcount   =  0,  # Blank gaps count
+
 
     return $self;
 }
@@ -30,7 +40,7 @@ sub new {
 sub offsets {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
-	$self->_calcmetrics(\$text);
+	$self->_calc_early_metrics(\$text);
 	my $clues 	= $self->_find_clues(\$text);
 	my $gaps  	= $self->_clues2gaps($clues);
 	my $offsets = $self->_gaps2offsets($gaps,length($text));
@@ -63,7 +73,8 @@ sub _find_clues  {
 	my $clues2 = $self->_find_blank($text);
 	my $clues3 = $self->_find_indent(\$text);
 	my $clues4 = $self->_find_cap(\$text);
-	my $clues  = [sort {$a->{start} <=> $b->{start}} (@$clues1,@$clues2,@$clues3,@$clues4)];
+	my $clues5 = $self->_find_punct(\$text);
+	my $clues  = [sort {$a->{start} <=> $b->{start}} (@$clues1,@$clues2,@$clues3,@$clues4,@$clues5)];
 	return $clues;
 }
 
@@ -77,7 +88,7 @@ sub _find_short  {
 		my $line = ${^MATCH};
 		my ($start,$end) = ($-[0],$+[0]);
 		next if $line =~ /^\s*$/;			# blank line does not count
-		$start+= $+[1] if $line =~ /^\s*(\p{IsUpper})/gmp; # compat. with caps rule
+		#$start+= $+[1] if $line =~ /^\s*(\p{IsUpper})/gmp; # compat. with caps rule
 		push @$clues, {
 			start 		=> $start,
 			end			=> $end,
@@ -98,7 +109,8 @@ sub _find_blank  {
 			end			=> $+[0],
 			type		=> 'blank',
 			confidence	=> $self->blw,
-		}
+		};
+		$self->_bgcount++;
 	}
 	return $clues;
 }
@@ -112,12 +124,15 @@ sub _find_indent  {
 		my $indent = ${^MATCH};
 		my $width = $self->tabwidth*($indent =~ s/\t//g);
 		$width+= ($indent =~ s/ //g);
-		push @$clues, {
-			start		=> $start,
-			end			=> $end,
-			type 		=> 'indent',
-			confidence	=> $self->indw,
-		} if $width >= $self->indw;
+		if ($width >= $self->indw) {
+			push @$clues, {
+				start		=> $start,
+				end			=> $end,
+				type 		=> 'indent',
+				confidence	=> $self->indw,
+			}; 
+			$self->_ilcount++;
+		}
 	}
 	return $clues;
 }
@@ -142,7 +157,7 @@ sub _find_punct  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
-	while($text =~ /[,;:\-]$/gpm){
+	while($text =~ /[,;\-]$/gpm){
 		my ($start,$end) = ($-[0],$+[0]);
 		push @$clues, {
 			start		=> $start,
@@ -182,7 +197,7 @@ sub _clues2gaps  {
 		my $c = $clues->[$j];
 		shift @$order while (@$order and $order->[0] ne $c->{type});
 
-		while (@$order and $j < @$clues and $c->{start} eq $merge->{clues_end}){
+		while (@$order and $j < @$clues and $c->{start} <= $merge->{clues_end}){
 			shift @$order;
 			$merge->{clues_end} = $c->{end};
 			if($c->{type} eq 'short' or $c->{type} eq 'punctuation'){
@@ -235,14 +250,12 @@ sub _offsets2array  {
 	return $pars;
 }
 
-sub _calcmetrics  {
+sub _calc_early_metrics  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 
 	my $avgll = length($text)/(split /\n/,$text);
 	$self->_avgll($avgll);
-
-	#my $il_count =()= $text =~ /^/g;
 
 }
 

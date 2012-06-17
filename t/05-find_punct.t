@@ -28,13 +28,13 @@ END
 my $sp = Text::Paragraph::Splitter->new;
 my $got = $sp->_find_punct($text);
 my $expected = [
-  { confidence => -0.5, end => 68, start => 67, type => "punctuation" },
-  { confidence => -0.5, end => 204, start => 203, type => "punctuation" },
+  { confidence => -0.5, end => 68,  start => 67,  type => "punctuation" },
+  #{ confidence => -0.5, end => 204, start => 203, type => "punctuation" }, uncomment if : is punct
   { confidence => -0.5, end => 519, start => 518, type => "punctuation" },
-  { confidence => 0.2, end => 251, start => 250, type => "punctuation" },
-  { confidence => 0.2, end => 450, start => 449, type => "punctuation" },
-  { confidence => 0.2, end => 654, start => 653, type => "punctuation" },
-  { confidence => 0.2, end => 748, start => 747, type => "punctuation" },
+  { confidence =>  0.2, end => 251, start => 250, type => "punctuation" },
+  { confidence =>  0.2, end => 450, start => 449, type => "punctuation" },
+  { confidence =>  0.2, end => 654, start => 653, type => "punctuation" },
+  { confidence =>  0.2, end => 748, start => 747, type => "punctuation" },
 ];
-is_deeply($got,$expected,"Finding punctiation-ending lines");
+is_deeply($got,$expected,"Finding punctuation-ending lines");
 
