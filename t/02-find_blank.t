@@ -20,7 +20,7 @@ END
 ;
 
 my $sp = Text::Paragraph::Splitter->new;
-my $got = $sp->_findblank($text);
+my $got = $sp->_find_blank($text);
 my $expected = [
   { confidence => 0.8, end => 223, start => 221, type => "blank" },
   { confidence => 0.8, end => 345, start => 343, type => "blank" },

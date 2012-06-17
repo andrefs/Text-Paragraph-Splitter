@@ -25,7 +25,7 @@ END
 ;
 
 my $sp = Text::Paragraph::Splitter->new;
-my $got = $sp->_findcap($text);
+my $got = $sp->_find_cap($text);
 my $expected = [
   { confidence => 0.2, end => 5, start => 4, type => "caps" },
   { confidence => 0.2, end => 233, start => 232, type => "caps" },

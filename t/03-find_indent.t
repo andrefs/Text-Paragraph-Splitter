@@ -21,7 +21,7 @@ END
 ;
 
 my $sp = Text::Paragraph::Splitter->new;
-my $got = $sp->_findindent($text);
+my $got = $sp->_find_indent($text);
 my $expected = [
   { confidence => 0.3, end => 4, start => 0, type => "indent" },
   { confidence => 0.3, end => 147, start => 143, type => "indent" },

@@ -31,7 +31,7 @@ sub offsets {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	$self->_calcmetrics(\$text);
-	my $clues 	= $self->_findclues(\$text);
+	my $clues 	= $self->_find_clues(\$text);
 	my $gaps  	= $self->_clues2gaps($clues);
 	my $offsets = $self->_gaps2offsets($gaps,length($text));
 	return $offsets;
@@ -56,19 +56,19 @@ sub annotate {
 	return $anno;
 }
 
-sub _findclues  {
+sub _find_clues  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
-	my $clues1 = $self->_findshort(\$text);
-	my $clues2 = $self->_findblank($text);
-	my $clues3 = $self->_findindent(\$text);
-	my $clues4 = $self->_findcap(\$text);
+	my $clues1 = $self->_find_short(\$text);
+	my $clues2 = $self->_find_blank($text);
+	my $clues3 = $self->_find_indent(\$text);
+	my $clues4 = $self->_find_cap(\$text);
 	my $clues  = [sort {$a->{start} <=> $b->{start}} (@$clues1,@$clues2,@$clues3,@$clues4)];
 	return $clues;
 }
 
 
-sub _findshort  {
+sub _find_short  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
@@ -88,7 +88,7 @@ sub _findshort  {
 	return $clues;
 }
 
-sub _findblank  {
+sub _find_blank  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
@@ -103,7 +103,7 @@ sub _findblank  {
 	return $clues;
 }
 
-sub _findindent  {
+sub _find_indent  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
@@ -122,7 +122,7 @@ sub _findindent  {
 	return $clues;
 }
 
-sub _findcap  {
+sub _find_cap  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
@@ -138,7 +138,7 @@ sub _findcap  {
 	return $clues;
 }
 
-sub _findpunct  {
+sub _find_punct  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
 	my $clues = [];
@@ -238,8 +238,12 @@ sub _offsets2array  {
 sub _calcmetrics  {
 	my ($self,$text) = @_;
 	$text = $$text if ref($text);
+
 	my $avgll = length($text)/(split /\n/,$text);
 	$self->_avgll($avgll);
+
+	#my $il_count =()= $text =~ /^/g;
+
 }
 
 

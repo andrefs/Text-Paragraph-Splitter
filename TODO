@@ -1,0 +1,6 @@
+metrics:
+	avg line length
+	# [\.?!]\n[A-Z]
+	# [^\.?!]\n[a-z]   => wrapped text
+	# 
+

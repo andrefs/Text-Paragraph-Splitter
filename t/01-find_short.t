@@ -22,7 +22,7 @@ END
 ;
 
 my $sp = Text::Paragraph::Splitter->new;
-my $got = $sp->_findshort($text);
+my $got = $sp->_find_short($text);
 my $expected = [
   { confidence => 0.3, end => 263, start => 255, type => "short" },
   { confidence => 0.3, end => 524, start => 476, type => "short" },

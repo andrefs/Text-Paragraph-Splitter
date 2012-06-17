@@ -26,7 +26,7 @@ END
 
 
 my $sp = Text::Paragraph::Splitter->new;
-my $got = $sp->_findpunct($text);
+my $got = $sp->_find_punct($text);
 my $expected = [
   { confidence => -0.5, end => 68, start => 67, type => "punctuation" },
   { confidence => -0.5, end => 204, start => 203, type => "punctuation" },
