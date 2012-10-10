@@ -4,3 +4,7 @@ metrics:
 	# [^\.?!]\n[a-z]   => wrapped text
 	# 
 
+
+configurable:
+	- set of chars considered pos/neg punctuation
+
